@@ -12,8 +12,6 @@
     "lib/cli.js"
   ],
   "scripts": {
-    "csv": "ts-node src/csv.ts",
-    "import-all-time": "ts-node src/import-all-time.ts",
     "main": "ts-node src/cli.ts",
     "build": "tsc -p .",
     "clean": "rimraf lib/",
