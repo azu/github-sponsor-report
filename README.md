@@ -16,6 +16,14 @@ Make your GitHub Sponsors report page.
 
 After the setup, update data every hour by GitHub Actions.
 
+## Options
+
+- `GITHUB_TOKEN`: GitHub Token which has `user` and `read:org` permission
+- `GENERATE_ONLY_IMAGE`: only generate image without snapshots data
+  - If you want to make your report repository public, recommend to `GENERATE_ONLY_IMAGE=true`
+- `PROJECT_ROOT_DIR`: project root directory
+- `OWNER_NAME`: You GitHub account id.
+
 ## Contributing
 
 Pull requests and stars are always welcome.
