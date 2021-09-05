@@ -12,6 +12,7 @@ import * as vega from "vega";
 import * as lite from "vega-lite";
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GENERATE_ONLY_IMAGE = process.env.GENERATE_ONLY_IMAGE ? Boolean(process.env.GENERATE_ONLY_IMAGE) : false;
 const PROJECT_ROOT_DIR = process.env.PROJECT_ROOT_DIR || process.env.GITHUB_WORKSPACE || path.join(__dirname, "../");
 const OWNER_NAME = process.env.OWNER_NAME;
 const IMG_DIR = path.join(PROJECT_ROOT_DIR, "./docs/img");
@@ -167,24 +168,27 @@ export async function run() {
     const items = Boolean(process.env.MERGE_OLD_SNAPSHOTS) ? await mergeSnapshots(snapshot) : snapshot;
     const snapshots = path.join(SNAPSHOT_DIR, dayjs().utc().format("YYYY-MM") + ".json");
     const index = path.join(SNAPSHOT_DIR, "index.json");
-    // JSON
-    await fs.writeFile(snapshots, JSON.stringify(items, null, 4), "utf-8");
-    await fs.writeFile(index, JSON.stringify(items, null, 4), "utf-8");
-    // CSV
-    await csv.writeToPath(
-        path.join(SNAPSHOT_DIR, "index.csv"),
-        items.map((item) => {
-            return {
-                month: item.month,
-                estimatedIncomeDollar: item.estimatedIncomeDollar,
-                sponsorCount: item.sponsorCount,
-                newSponsorsCount: item.newSponsorsCount
-            };
-        }),
-        {
-            headers: true
-        }
-    );
+    if (!GENERATE_ONLY_IMAGE) {
+        // JSON
+        await fs.writeFile(snapshots, JSON.stringify(items, null, 4), "utf-8");
+        await fs.writeFile(index, JSON.stringify(items, null, 4), "utf-8");
+
+        // CSV
+        await csv.writeToPath(
+            path.join(SNAPSHOT_DIR, "index.csv"),
+            items.map((item) => {
+                return {
+                    month: item.month,
+                    estimatedIncomeDollar: item.estimatedIncomeDollar,
+                    sponsorCount: item.sponsorCount,
+                    newSponsorsCount: item.newSponsorsCount
+                };
+            }),
+            {
+                headers: true
+            }
+        );
+    }
     // estimatedIncomeDollar
     const estimatedIncomeDollarSpec = lite.compile({
         $schema: "https://vega.github.io/schema/vega-lite/v2.0.json",
