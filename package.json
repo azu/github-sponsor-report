@@ -5,11 +5,11 @@
   "repository": "azu/github-sponsor-report",
   "license": "MIT",
   "bin": {
-    "github-sponsor-report": "lib/src/cli.js"
+    "github-sponsor-report": "lib/cli.js"
   },
   "files": [
-    "lib/src/index.js",
-    "lib/src/cli.js"
+    "lib/index.js",
+    "lib/cli.js"
   ],
   "scripts": {
     "csv": "ts-node src/csv.ts",
