@@ -1,0 +1,57 @@
+{
+  "name": "github-sponsor-report",
+  "version": "1.0.4",
+  "description": "GitHub Sponsors report generator",
+  "license": "MIT",
+  "bin": {
+    "github-sponsor-report": "lib/src/cli.js"
+  },
+  "files": [
+    "lib/src/index.js",
+    "lib/src/cli.js"
+  ],
+  "scripts": {
+    "csv": "ts-node src/csv.ts",
+    "import-all-time": "ts-node src/import-all-time.ts",
+    "main": "ts-node src/cli.ts",
+    "build": "tsc -p .",
+    "clean": "rimraf lib/",
+    "prepare": "git config --local core.hooksPath .githooks",
+    "prepublishOnly": "npm run clean && npm run build",
+    "prettier": "prettier --write \"**/*.{js,jsx,ts,tsx,css}\"",
+    "watch": "tsc -p . --watch"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,css}": [
+      "prettier --write"
+    ]
+  },
+  "prettier": {
+    "printWidth": 120,
+    "singleQuote": false,
+    "tabWidth": 4,
+    "trailingComma": "none"
+  },
+  "devDependencies": {
+    "@types/lodash.groupby": "^4.6.6",
+    "@types/node": "^14.14.22",
+    "lint-staged": "^10.5.3",
+    "prettier": "^2.2.1",
+    "rimraf": "^3.0.2",
+    "ts-node": "^9.1.1",
+    "ts-node-test-register": "^9.0.1",
+    "typescript": "^4.1.3"
+  },
+  "dependencies": {
+    "@octokit/graphql": "^4.5.8",
+    "@octokit/graphql-schema": "^10.17.0",
+    "dayjs": "^1.10.4",
+    "fast-csv": "^4.3.6",
+    "glob": "^7.1.6",
+    "globby": "^11.0.2",
+    "image-charts": "^5.6.17",
+    "lodash.groupby": "^4.6.0",
+    "vega": "^5.19.1",
+    "vega-lite": "^4.17.0"
+  }
+}
