@@ -158,9 +158,11 @@ export const mergeSnapshots = async (currentSnapshot: SponsorSnapshot): Promise<
 };
 
 export async function run() {
-    await fs.mkdir(SNAPSHOT_DIR, {
-        recursive: true
-    });
+    if (!GENERATE_ONLY_IMAGE) {
+        await fs.mkdir(SNAPSHOT_DIR, {
+            recursive: true
+        });
+    }
     await fs.mkdir(IMG_DIR, {
         recursive: true
     });
