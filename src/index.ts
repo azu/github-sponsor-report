@@ -11,25 +11,20 @@ import * as csv from "fast-csv";
 import * as vega from "vega";
 import * as lite from "vega-lite";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GENERATE_ONLY_IMAGE = process.env.GENERATE_ONLY_IMAGE ? Boolean(process.env.GENERATE_ONLY_IMAGE) : false;
-const PROJECT_ROOT_DIR = process.env.PROJECT_ROOT_DIR || process.env.GITHUB_WORKSPACE || path.join(__dirname, "../");
-const OWNER_NAME = process.env.OWNER_NAME;
-const IMG_DIR = path.join(PROJECT_ROOT_DIR, "./docs/img");
-const SNAPSHOT_DIR = path.join(PROJECT_ROOT_DIR, "./snapshots");
-if (!GITHUB_TOKEN) {
-    throw new Error("No env.GITHUB_TOKEN");
-}
-if (!OWNER_NAME) {
-    throw new Error("No env.REPOSITORY_NAME");
-}
-const graphqlWithAuth = graphql.defaults({
-    headers: {
-        authorization: `token ${GITHUB_TOKEN}`
-    }
-});
-//
-const QUERY = `query ($user: String!, $cursor: String) {
+type FetchSponsorsArgs = {
+    results: Sponsorship[];
+    cursor?: string | undefined | null;
+    GITHUB_TOKEN: string;
+    OWNER_NAME: string;
+};
+
+async function fetchSponsors(args: FetchSponsorsArgs) {
+    const graphqlWithAuth = graphql.defaults({
+        headers: {
+            authorization: `token ${args.GITHUB_TOKEN}`
+        }
+    });
+    const QUERY = `query ($user: String!, $cursor: String) {
   user(login: $user) {
     sponsorshipsAsMaintainer(first: 100, after: $cursor, includePrivate: true) {
       pageInfo {
@@ -56,19 +51,13 @@ const QUERY = `query ($user: String!, $cursor: String) {
   }
 }
 `;
-
-async function fetchSponsors(
-    { results, cursor }: { results: Sponsorship[]; cursor?: string | undefined | null } = { results: [] }
-) {
-    const { user } = await graphqlWithAuth<{ user: User }>(QUERY, { cursor, user: OWNER_NAME });
+    const { user } = await graphqlWithAuth<{ user: User }>(QUERY, { cursor: args.cursor, user: args.OWNER_NAME });
     const nodes = user.sponsorshipsAsMaintainer.nodes as Sponsorship[];
-    results.push(...nodes);
-
+    args.results.push(...nodes);
     if (user.sponsorshipsAsMaintainer.pageInfo.hasNextPage) {
-        await fetchSponsors({ results, cursor: user.sponsorshipsAsMaintainer.pageInfo.endCursor });
+        await fetchSponsors({ ...args, cursor: user.sponsorshipsAsMaintainer.pageInfo.endCursor });
     }
-
-    return results;
+    return args.results;
 }
 
 export type Sponsor = {
@@ -87,12 +76,21 @@ export type SponsorSnapshot = {
     sponsorCount: number;
     newSponsorsCount: number;
 }[];
-export const fetchFormattedSponsors = async (): Promise<SponsorSnapshot> => {
-    const sponsors = await fetchSponsors();
+export const fetchFormattedSponsors = async ({
+    GITHUB_TOKEN,
+    OWNER_NAME
+}: {
+    GITHUB_TOKEN: string;
+    OWNER_NAME: string;
+}): Promise<SponsorSnapshot> => {
+    const sponsors = await fetchSponsors({
+        results: [],
+        GITHUB_TOKEN,
+        OWNER_NAME
+    });
     const sortedSponsors = sponsors.sort((a, b) => a.createdAt - b.createdAt);
     const firstDate = dayjs(sortedSponsors[0].createdAt).utc().startOf("month");
     const lastDate = dayjs().utc().endOf("month");
-    console.log(`OWNER_NAME: ${OWNER_NAME}`);
     console.log(firstDate.toISOString(), "~", lastDate.toISOString());
     let currentMonth = firstDate;
     const groupByMonth: { [index: string]: Sponsorship[] } = {};
@@ -137,7 +135,10 @@ export const fetchFormattedSponsors = async (): Promise<SponsorSnapshot> => {
 };
 
 // Merge old YYYY-MM.json snapshot
-export const mergeSnapshots = async (currentSnapshot: SponsorSnapshot): Promise<SponsorSnapshot> => {
+export const mergeSnapshots = async (
+    currentSnapshot: SponsorSnapshot,
+    SNAPSHOT_DIR: string
+): Promise<SponsorSnapshot> => {
     currentSnapshot.forEach((snapshotItem, index) => {
         if (!1) {
             return;
@@ -156,42 +157,11 @@ export const mergeSnapshots = async (currentSnapshot: SponsorSnapshot): Promise<
     });
     return currentSnapshot;
 };
-
-export async function run() {
-    if (!GENERATE_ONLY_IMAGE) {
-        await fs.mkdir(SNAPSHOT_DIR, {
-            recursive: true
-        });
-    }
-    await fs.mkdir(IMG_DIR, {
-        recursive: true
-    });
-    const snapshot = await fetchFormattedSponsors();
-    const items = Boolean(process.env.MERGE_OLD_SNAPSHOTS) ? await mergeSnapshots(snapshot) : snapshot;
-    const snapshots = path.join(SNAPSHOT_DIR, dayjs().utc().format("YYYY-MM") + ".json");
-    const index = path.join(SNAPSHOT_DIR, "index.json");
-    if (!GENERATE_ONLY_IMAGE) {
-        // JSON
-        await fs.writeFile(snapshots, JSON.stringify(items, null, 4), "utf-8");
-        await fs.writeFile(index, JSON.stringify(items, null, 4), "utf-8");
-
-        // CSV
-        await csv.writeToPath(
-            path.join(SNAPSHOT_DIR, "index.csv"),
-            items.map((item) => {
-                return {
-                    month: item.month,
-                    estimatedIncomeDollar: item.estimatedIncomeDollar,
-                    sponsorCount: item.sponsorCount,
-                    newSponsorsCount: item.newSponsorsCount
-                };
-            }),
-            {
-                headers: true
-            }
-        );
-    }
-    // estimatedIncomeDollar
+/**
+ * Create EstimatedIncomeDollar graph
+ * @param items
+ */
+export const createEstimatedIncomeDollarGraph = async (items: SponsorSnapshot) => {
     const estimatedIncomeDollarSpec = lite.compile({
         $schema: "https://vega.github.io/schema/vega-lite/v2.0.json",
         description: "Estimated Income Dollar",
@@ -212,8 +182,13 @@ export async function run() {
         }
     }).spec;
     const estimatedIncomeDollarView = new vega.View(vega.parse(estimatedIncomeDollarSpec), { renderer: "none" });
-    const estimatedIncomeDollarSVG = await estimatedIncomeDollarView.toSVG();
-    await fs.writeFile(path.join(IMG_DIR, "estimated_income_dollar.svg"), estimatedIncomeDollarSVG, "utf-8");
+    return estimatedIncomeDollarView.toSVG();
+};
+/**
+ * Create Sponsor count graph
+ * @param items
+ */
+export const createSponsorsCountGraph = (items: SponsorSnapshot) => {
     // sponsorsSpec
     // https://vega.github.io/editor/#/examples/vega-lite/stacked_bar_h
     const sponsorsSpec = lite.compile({
@@ -265,6 +240,58 @@ export async function run() {
         }
     }).spec;
     const sponsorsView = new vega.View(vega.parse(sponsorsSpec), { renderer: "none" });
-    const sponsorsSVG = await sponsorsView.toSVG();
+    return sponsorsView.toSVG();
+};
+
+export async function run() {
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+    const GENERATE_ONLY_IMAGE = process.env.GENERATE_ONLY_IMAGE ? Boolean(process.env.GENERATE_ONLY_IMAGE) : false;
+    const PROJECT_ROOT_DIR =
+        process.env.PROJECT_ROOT_DIR || process.env.GITHUB_WORKSPACE || path.join(__dirname, "../");
+    const OWNER_NAME = process.env.OWNER_NAME;
+    const IMG_DIR = path.join(PROJECT_ROOT_DIR, "./docs/img");
+    const SNAPSHOT_DIR = path.join(PROJECT_ROOT_DIR, "./snapshots");
+    if (!GITHUB_TOKEN) {
+        throw new Error("No env.GITHUB_TOKEN");
+    }
+    if (!OWNER_NAME) {
+        throw new Error("No env.REPOSITORY_NAME");
+    }
+    if (!GENERATE_ONLY_IMAGE) {
+        await fs.mkdir(SNAPSHOT_DIR, {
+            recursive: true
+        });
+    }
+    await fs.mkdir(IMG_DIR, {
+        recursive: true
+    });
+    const snapshot = await fetchFormattedSponsors({ GITHUB_TOKEN, OWNER_NAME });
+    const items = Boolean(process.env.MERGE_OLD_SNAPSHOTS) ? await mergeSnapshots(snapshot, SNAPSHOT_DIR) : snapshot;
+    const snapshots = path.join(SNAPSHOT_DIR, dayjs().utc().format("YYYY-MM") + ".json");
+    const index = path.join(SNAPSHOT_DIR, "index.json");
+    if (!GENERATE_ONLY_IMAGE) {
+        // JSON
+        await fs.writeFile(snapshots, JSON.stringify(items, null, 4), "utf-8");
+        await fs.writeFile(index, JSON.stringify(items, null, 4), "utf-8");
+
+        // CSV
+        await csv.writeToPath(
+            path.join(SNAPSHOT_DIR, "index.csv"),
+            items.map((item) => {
+                return {
+                    month: item.month,
+                    estimatedIncomeDollar: item.estimatedIncomeDollar,
+                    sponsorCount: item.sponsorCount,
+                    newSponsorsCount: item.newSponsorsCount
+                };
+            }),
+            {
+                headers: true
+            }
+        );
+    }
+    const estimatedIncomeDollarSVG = await createEstimatedIncomeDollarGraph(snapshot);
+    await fs.writeFile(path.join(IMG_DIR, "estimated_income_dollar.svg"), estimatedIncomeDollarSVG, "utf-8");
+    const sponsorsSVG = await createSponsorsCountGraph(snapshot);
     await fs.writeFile(path.join(IMG_DIR, "sponsors_count.svg"), sponsorsSVG, "utf-8");
 }
