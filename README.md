@@ -2,6 +2,12 @@
 
 Make your GitHub Sponsors report page.
 
+## Screenshot
+
+An example view of [GitHub Sponsor Report](https://github.com/azu/github-sponsor-report-template).
+
+<img width="624" alt="Example of GitHub Sponsor Report" src="https://user-images.githubusercontent.com/19714/154877959-41f114d3-15c1-4e53-b80e-775395ceb417.png">
+
 ## Usage
 
 1. [Create a report repository using this Template](https://github.com/azu/github-sponsor-report-template/generate)
