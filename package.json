@@ -1,6 +1,6 @@
 {
   "name": "github-sponsor-report",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "GitHub Sponsors report generator",
   "repository": "azu/github-sponsor-report",
   "license": "MIT",
