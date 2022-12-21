@@ -140,9 +140,6 @@ export const mergeSnapshots = async (
     SNAPSHOT_DIR: string
 ): Promise<SponsorSnapshot> => {
     currentSnapshot.forEach((snapshotItem, index) => {
-        if (!1) {
-            return;
-        }
         const month = snapshotItem.month;
         try {
             const oldSnapshot = require(path.join(SNAPSHOT_DIR, month + ".json")) as SponsorSnapshot;
