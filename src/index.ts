@@ -88,7 +88,9 @@ export const fetchFormattedSponsors = async ({
         GITHUB_TOKEN,
         OWNER_NAME
     });
-    const sortedSponsors = sponsors.sort((a, b) => a.createdAt - b.createdAt);
+    const sortedSponsors = sponsors.sort((a, b) => {
+        return dayjs(a.createdAt).isBefore(dayjs(b.createdAt)) ? -1 : 1;
+    });
     const firstDate = dayjs(sortedSponsors[0].createdAt).utc().startOf("month");
     const lastDate = dayjs().utc().endOf("month");
     console.log(firstDate.toISOString(), "~", lastDate.toISOString());
