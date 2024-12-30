@@ -83,12 +83,15 @@ export const fetchFormattedSponsors = async ({
     GITHUB_TOKEN: string;
     OWNER_NAME: string;
 }): Promise<SponsorSnapshot> => {
-    const sponsors = await fetchSponsors({
+    const rawSponsors = await fetchSponsors({
         results: [],
         GITHUB_TOKEN,
         OWNER_NAME
     });
-    const sortedSponsors = sponsors.sort((a, b) => {
+    const sponsorsWithoutOnetime = rawSponsors.filter((sponsor) => {
+        return !sponsor.tier?.isOneTime;
+    });
+    const sortedSponsors = sponsorsWithoutOnetime.sort((a, b) => {
         return dayjs(a.createdAt).isBefore(dayjs(b.createdAt)) ? -1 : 1;
     });
     const firstDate = dayjs(sortedSponsors[0].createdAt).utc().startOf("month");
@@ -102,7 +105,7 @@ export const fetchFormattedSponsors = async ({
     ) {
         const month = currentMonth.format("YYYY-MM");
         groupByMonth[month] = [];
-        sponsors.forEach((sponsor) => {
+        sortedSponsors.forEach((sponsor) => {
             const sponsorCreatedDate = dayjs(sponsor.createdAt).utc();
             if (
                 sponsorCreatedDate.isBefore(currentMonth) ||
